@@ -3,9 +3,9 @@ import { Card, Button } from "@heroui/react";
 
 export default function AdminPage() {
   const [orders, setOrders] = useState([]);
-
+const API_URL = import.meta.env.VITE_API_URL;
   const fetchOrders = async () => {
-    const res = await fetch("http://localhost:5000/api/orders");
+    const res = await fetch(`${API_URL}/api/orders`);
     const data = await res.json();
     setOrders(data);
   };
@@ -45,7 +45,7 @@ export default function AdminPage() {
                 {order.images?.map((img, i) => (
                   <img
                     key={i}
-                    src={`http://localhost:5000${img}`}
+                    src={`${API_URL}${img}`}
                     alt=""
                     className="w-24 h-24 object-cover rounded"
                   />
@@ -87,7 +87,7 @@ export default function AdminPage() {
   );
 
   async function updateStatus(id, status) {
-    await fetch(`http://localhost:5000/api/orders/${id}`, {
+    await fetch(`${API_URL}/api/orders/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),

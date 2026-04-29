@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 export default function OrderForm() {
+  const API_URL = import.meta.env.VITE_API_URL;
   const [files, setFiles] = useState([]);
   const [service, setService] = useState("full");
   const [extras, setExtras] = useState({
@@ -47,7 +48,7 @@ const orderId = crypto.randomUUID();
   });
 
   try {
-    const res = await fetch("http://localhost:5000/api/orders", {
+    const res = await fetch(`${API_URL}/api/orders`, {
       method: "POST",
       body: formData,
     });
