@@ -1,15 +1,14 @@
 const fs = require("fs-extra");
 const path = require("path");
-const { object } = require('joi');
-const orderSchema = require("../validators/orderValidator");
-//const { v4: uuidv4 } = require("uuid");
-
+const cloudinary = require("../config/cloudinary");
+const { uploadToCloudinary } = require("../services/cloudinaryService");
+const { createOrderDB, getOrdersDB, updateOrderStatusDB } = require("../services/orderService");
 const DATA_FILE = process.env.DATA_FILE || "../../data/orders.json";
 
-// 📦 crear pedido
 const createOrder = async (req, res) => {
   try {
-   // const id = uuidv4();
+    console.log("BODY:", req.body);
+    console.log("FILES:", req.files);
 
     const {
       orderId,
@@ -20,73 +19,76 @@ const createOrder = async (req, res) => {
       description,
       price,
     } = req.body;
-    //await orderSchema.validateAsync(req.body, req.files);
-const images = req.files.map(f => {
-  const normalized = f.path.replace(/\\/g, "/");
 
-  const index = normalized.indexOf("uploads");
+    // ☁️ AQUÍ ESTÁ LA MAGIA
+    //const images = req.files.map(file => file.path); // URL cloudinary
+const images = [];
 
-  return "/" + normalized.substring(index).replace(/\\/g, "/");
-});
+if (req.files && req.files.length > 0) {
+  for (const file of req.files) {
+    const url = await uploadToCloudinary(file.buffer, orderId);
+    images.push(url);
+  }
+}
     const order = {
       id: orderId,
       name,
       email,
       service,
-      extras: JSON.parse(extras || "{}"),
+      extras: typeof extras === "string" ? JSON.parse(extras) : extras,
       description,
       price: Number(price),
-      images,
+      images, // 👉 URLs reales
       status: "pending",
       createdAt: new Date(),
     };
 
-    await fs.ensureFile(DATA_FILE);
-
-    let orders = [];
-    if (await fs.pathExists(DATA_FILE)) {
-      orders = await fs.readJson(DATA_FILE);
-    }
-
-    orders.push(order);
-
-    await fs.writeJson(DATA_FILE, orders, { spaces: 2 });
+    await createOrderDB(order, images);
 
     res.json({
       success: true,
-      orderId: orderId,
+      orderId,
     });
-const fileValidation = () => {
-  if (!req.files) return false;
 
-  const allowed = ["image/png", "image/jpeg", "image/webp"];
-
-  return req.files.every(file =>
-    allowed.includes(file.mimetype)
-  );
-};
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Error creando pedido" });
+    res.status(500).json({
+      success: false,
+      error: err.message,
+    });
   }
 };
 
-// 📥 obtener pedidos
 const getOrders = async (req, res) => {
   try {
-    if (!(await fs.pathExists(DATA_FILE))) {
-      return res.json([]);
-    }
-
-    const orders = await fs.readJson(DATA_FILE);
+    const orders = await getOrdersDB();
     res.json(orders);
 
   } catch (err) {
-    res.status(500).json({ error: "Error leyendo pedidos" });
+    res.status(500).json({
+      error: "Error obteniendo pedidos",
+    });
+  }
+};
+
+const updateOrderStatus = async (req, res) => {
+  try {
+    await updateOrderStatusDB(
+      req.params.id,
+      req.body.status
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    res.status(500).json({
+      error: "Error actualizando estado",
+    });
   }
 };
 
 module.exports = {
   createOrder,
   getOrders,
+  updateOrderStatus,
 };
